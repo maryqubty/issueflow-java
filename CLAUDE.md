@@ -17,7 +17,7 @@
 - meaningful HTTP status codes (404 for not found, 400 for validation errors, 409 for conflicts)
 
 ## Database
-- Do not add new dependencies to pom.xml
+- Do not add dependencies unless they are strictly necessary and not already covered by the existing ones
 - Replace the placeholder schema.sql with the real schema
 - application.yaml is already configured for PostgreSQL on localhost:5432
 - Test profile uses H2 (see src/test/resources/application.yaml)
