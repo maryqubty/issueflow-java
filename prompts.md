@@ -1,5 +1,7 @@
 # Prompts – AI Agent Interaction
 
+**Model used:** Claude Sonnet 4.6 (`claude-sonnet-4-6`) via Claude Code CLI
+
 This file documents how the AI agent (Claude Code) was used to implement IssueFlow.
 
 ---

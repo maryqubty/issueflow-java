@@ -33,6 +33,9 @@ public class Comment {
     @Builder.Default
     private LocalDateTime createdAt = LocalDateTime.now();
 
+    @Version
+    private Long version;
+
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(
             name = "comment_mentions",

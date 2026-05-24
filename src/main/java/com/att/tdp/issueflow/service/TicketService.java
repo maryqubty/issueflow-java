@@ -8,7 +8,9 @@ import com.att.tdp.issueflow.entity.Project;
 import com.att.tdp.issueflow.entity.Ticket;
 import com.att.tdp.issueflow.entity.User;
 import com.att.tdp.issueflow.enums.*;
+import com.att.tdp.issueflow.exception.ConflictException;
 import com.att.tdp.issueflow.exception.EntityNotFoundException;
+import com.att.tdp.issueflow.exception.ValidationException;
 import com.att.tdp.issueflow.repository.TicketRepository;
 import com.att.tdp.issueflow.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -17,12 +19,14 @@ import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVPrinter;
 import org.apache.commons.csv.CSVRecord;
 import org.springframework.stereotype.Service;
+
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 
 @Service
@@ -46,6 +50,7 @@ public class TicketService {
 
     public TicketResponse create(CreateTicketRequest req) {
         Project project = projectService.findOrThrow(req.getProjectId());
+        boolean autoAssigned = req.getAssigneeId() == null;
         User assignee = resolveAssignee(req.getAssigneeId(), project);
 
         Ticket ticket = Ticket.builder()
@@ -61,15 +66,29 @@ public class TicketService {
                 .build();
         Ticket saved = ticketRepository.save(ticket);
         auditLogService.record(AuditAction.CREATE, EntityType.TICKET, saved.getId(), null, Actor.USER);
+        if (autoAssigned && assignee != null) {
+            auditLogService.record(AuditAction.AUTO_ASSIGN, EntityType.TICKET, saved.getId(), null, Actor.SYSTEM);
+        }
         return toResponse(saved);
     }
 
     public void update(Long id, UpdateTicketRequest req) {
         Ticket ticket = findOrThrow(id);
+
+        if (ticket.getStatus() == TicketStatus.DONE) {
+            throw new ConflictException("Cannot update a ticket that is already DONE");
+        }
+
+        if (req.getStatus() != null) {
+            validateStatusTransition(ticket.getStatus(), req.getStatus(), id);
+            ticket.setStatus(req.getStatus());
+        }
         if (req.getTitle() != null) ticket.setTitle(req.getTitle());
         if (req.getDescription() != null) ticket.setDescription(req.getDescription());
-        if (req.getStatus() != null) ticket.setStatus(req.getStatus());
-        if (req.getPriority() != null) ticket.setPriority(req.getPriority());
+        if (req.getPriority() != null) {
+            ticket.setPriority(req.getPriority());
+            ticket.setOverdue(false);
+        }
         if (req.getDueDate() != null) ticket.setDueDate(req.getDueDate());
         if (req.getAssigneeId() != null) {
             ticket.setAssignee(userService.findOrThrow(req.getAssigneeId()));
@@ -168,18 +187,33 @@ public class TicketService {
                 .orElseThrow(() -> new EntityNotFoundException("Ticket not found: " + id));
     }
 
+    private void validateStatusTransition(TicketStatus current, TicketStatus next, Long ticketId) {
+        if (next.ordinal() <= current.ordinal()) {
+            throw new ValidationException(
+                    "Invalid status transition: " + current + " → " + next + ". Status can only move forward.");
+        }
+        if (next == TicketStatus.DONE) {
+            long blockers = ticketRepository.countUnresolvedBlockers(ticketId);
+            if (blockers > 0) {
+                throw new ValidationException(
+                        "Cannot transition to DONE: ticket has " + blockers + " unresolved blocker(s)");
+            }
+        }
+    }
+
     private User resolveAssignee(Long assigneeId, Project project) {
         if (assigneeId != null) {
             return userService.findOrThrow(assigneeId);
         }
-        // auto-assign to least-loaded DEVELOPER
         List<User> developers = userRepository.findByRole(Role.DEVELOPER);
         if (developers.isEmpty()) return null;
+        Long projectId = project.getId();
         return developers.stream()
-                .min((a, b) -> Long.compare(
-                        ticketRepository.countByAssigneeIdAndStatusNotAndDeletedAtIsNull(a.getId(), TicketStatus.DONE),
-                        ticketRepository.countByAssigneeIdAndStatusNotAndDeletedAtIsNull(b.getId(), TicketStatus.DONE)
-                ))
+                .min(Comparator
+                        .comparingLong((User u) ->
+                                ticketRepository.countByAssigneeIdAndProjectIdAndStatusNotAndDeletedAtIsNull(
+                                        u.getId(), projectId, TicketStatus.DONE))
+                        .thenComparingLong(User::getId))
                 .orElse(null);
     }
 

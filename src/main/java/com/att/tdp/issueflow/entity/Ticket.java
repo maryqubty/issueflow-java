@@ -53,9 +53,9 @@ public class Ticket {
     @Builder.Default
     private LocalDateTime createdAt = LocalDateTime.now();
 
-    public boolean isOverdue() {
-        return dueDate != null
-                && dueDate.isBefore(LocalDateTime.now())
-                && status != TicketStatus.DONE;
-    }
+    @Column(name = "is_overdue")
+    private boolean overdue;
+
+    @Version
+    private Long version;
 }

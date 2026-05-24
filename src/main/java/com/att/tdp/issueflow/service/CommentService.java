@@ -95,7 +95,7 @@ public class CommentService {
         Matcher matcher = MENTION_PATTERN.matcher(content);
         while (matcher.find()) {
             String username = matcher.group(1);
-            User user = userRepository.findByUsername(username)
+            User user = userRepository.findByUsernameIgnoreCase(username)
                     .orElseThrow(() -> new ValidationException("Mentioned user not found: @" + username));
             mentions.add(user);
         }

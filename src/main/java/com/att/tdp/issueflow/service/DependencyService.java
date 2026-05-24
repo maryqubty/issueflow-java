@@ -27,8 +27,12 @@ public class DependencyService {
         if (ticketId.equals(blockerId)) {
             throw new ValidationException("A ticket cannot block itself");
         }
-        ticketService.findOrThrow(ticketId);
-        ticketService.findOrThrow(blockerId);
+        Ticket ticket = ticketService.findOrThrow(ticketId);
+        Ticket blocker = ticketService.findOrThrow(blockerId);
+
+        if (!ticket.getProject().getId().equals(blocker.getProject().getId())) {
+            throw new ValidationException("Both tickets must belong to the same project");
+        }
 
         boolean exists = ((Number) entityManager.createNativeQuery(
                 "SELECT COUNT(*) FROM ticket_dependencies WHERE ticket_id = ? AND blocked_by_id = ?")

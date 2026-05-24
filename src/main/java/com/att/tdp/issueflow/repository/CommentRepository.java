@@ -12,9 +12,6 @@ import java.util.List;
 public interface CommentRepository extends JpaRepository<Comment, Long> {
     List<Comment> findByTicketId(Long ticketId);
 
-    @Query("SELECT c FROM Comment c JOIN c.mentionedUsers u WHERE u.id = :userId")
+    @Query("SELECT c FROM Comment c JOIN c.mentionedUsers u WHERE u.id = :userId ORDER BY c.createdAt DESC")
     Page<Comment> findByMentionedUsersId(@Param("userId") Long userId, Pageable pageable);
-
-    @Query("SELECT COUNT(c) FROM Comment c JOIN c.mentionedUsers u WHERE u.id = :userId")
-    long countByMentionedUsersId(@Param("userId") Long userId);
 }

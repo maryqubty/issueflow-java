@@ -32,12 +32,13 @@ public class EscalationScheduler {
         for (Ticket ticket : overdue) {
             Priority current = ticket.getPriority();
             Priority next = escalate(current);
-            if (next != current) {
-                ticket.setPriority(next);
-                ticketRepository.save(ticket);
-                auditLogService.record(AuditAction.UPDATE, EntityType.TICKET, ticket.getId(), null, Actor.SYSTEM);
-                log.info("Escalated ticket {} from {} to {}", ticket.getId(), current, next);
+            ticket.setPriority(next);
+            if (next == Priority.CRITICAL) {
+                ticket.setOverdue(true);
             }
+            ticketRepository.save(ticket);
+            auditLogService.record(AuditAction.UPDATE, EntityType.TICKET, ticket.getId(), null, Actor.SYSTEM);
+            log.info("Escalated ticket {} from {} to {}", ticket.getId(), current, next);
         }
     }
 

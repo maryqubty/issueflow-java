@@ -26,7 +26,9 @@ CREATE TABLE IF NOT EXISTS tickets (
     assignee_id BIGINT REFERENCES users(id),
     due_date TIMESTAMP,
     deleted_at TIMESTAMP,
-    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    is_overdue BOOLEAN NOT NULL DEFAULT FALSE,
+    version BIGINT NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS comments (
@@ -34,7 +36,8 @@ CREATE TABLE IF NOT EXISTS comments (
     ticket_id BIGINT REFERENCES tickets(id),
     author_id BIGINT REFERENCES users(id),
     content TEXT NOT NULL,
-    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    version BIGINT NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS comment_mentions (
